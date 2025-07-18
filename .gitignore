@@ -1,0 +1,38 @@
+# PHP Composer dependencies
+/vendor/
+
+# Python virtual environment
+/venv/
+/.venv/
+/env/
+/.env/
+/activate
+*.pyc
+__pycache__/
+
+# Log files
+*.log
+logs/
+
+# IDE and OS specific files
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Test output files or temporary data
+/test_output/
+/temp_data/
+*.tmp
+
+# Local configuration files (if any, use .dist or .example for templates)
+config/local.php
+.env
+
+# Downloaded historical data files (these should be stored in ClickHouse, not in git)
+/data_downloads/
+*.zip
+*.csv
+*.gz
