@@ -6,9 +6,9 @@ import numpy as np
 import json
 import os
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QMenu
+from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QMenu, QToolTip, QSystemTrayIcon
 from PySide6.QtCore import Qt, QTimer, QPoint, QRect
-from PySide6.QtGui import QCloseEvent, QAction
+from PySide6.QtGui import QCloseEvent, QAction, QCursor, QIcon, QPixmap, QPainter, QColor
 
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -26,7 +26,11 @@ class SmartHandle(QPushButton):
         super().__init__(parent)
         button_size = 4
         self.setFixedSize(button_size, button_size)
-        self.setToolTip("Drag to move, Ctrl+Drag to resize")
+        self.setToolTip(
+            "🖱 Drag → Move window\n"
+            "Ctrl + Drag → Resize window\n"
+            "Right-click anywhere → Exit"
+        )
         self.setStyleSheet(f"""
             QPushButton {{
                 background-color: rgba(255, 0, 0, 180); border: none; border-radius: {button_size // 1}px;
@@ -78,6 +82,13 @@ class SmartHandle(QPushButton):
 
         event.accept()
 
+    def enterEvent(self, event):
+        QToolTip.showText(
+            QCursor.pos(),
+            "Drag → Move\nCtrl + Drag → Resize\nRight-click → Exit",
+            self
+        )
+
     def mouseReleaseEvent(self, event):
         """Finalizes the action and saves the new settings."""
         if self.current_action:
@@ -109,17 +120,22 @@ class PingWidget(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # Set window flags for a frameless, always-on-top tool window
+        # Set window flags for a frameless, always-on-top window that never loses focus
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint |
             Qt.WindowType.WindowStaysOnTopHint |
-            Qt.WindowType.Tool
+            Qt.WindowType.Tool |
+            Qt.WindowType.WindowDoesNotAcceptFocus
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
         self.setStyleSheet("background:transparent;")
 
         # Load previous geometry or set a default
         self.load_settings()
+
+        # System tray icon
+        self._setup_tray()
 
         # Set up the main chart canvas
         self.canvas = MatplotlibCanvas(self)
@@ -146,6 +162,43 @@ class PingWidget(QMainWindow):
         # Enable a context menu for exiting
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_exit_menu)
+
+    def _setup_tray(self):
+        """Creates a system tray icon with show/hide and exit options."""
+        # Draw a simple blue circle as the tray icon
+        px = QPixmap(16, 16)
+        px.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(px)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(QColor("#00aaff"))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(2, 2, 12, 12)
+        painter.end()
+
+        self.tray = QSystemTrayIcon(QIcon(px), self)
+        self.tray.setToolTip("Ping Widget")
+
+        menu = QMenu()
+        show_action = menu.addAction("Show / Hide")
+        show_action.triggered.connect(self._toggle_visibility)
+        menu.addSeparator()
+        exit_action = menu.addAction("Exit")
+        exit_action.triggered.connect(self.close)
+
+        self.tray.setContextMenu(menu)
+        self.tray.activated.connect(self._tray_activated)
+        self.tray.show()
+
+    def _toggle_visibility(self):
+        if self.isVisible():
+            self.hide()
+        else:
+            self.show()
+            self.raise_()
+
+    def _tray_activated(self, reason):
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            self._toggle_visibility()
 
     def get_ping_time(self, host):
         """Pings a host and returns the latency in ms, or None on failure."""
@@ -197,15 +250,24 @@ class PingWidget(QMainWindow):
 
     def load_settings(self):
         """Loads window geometry from the settings file."""
+        screen = QApplication.primaryScreen().availableGeometry()
+        default_w, default_h = 400, 100
+        default_x = screen.center().x() - default_w // 2
+        default_y = screen.center().y() - default_h // 2
+
         try:
             with open(self.get_settings_path(), 'r') as f:
                 settings = json.load(f)
-                self.setGeometry(
-                    settings.get('x', 100), settings.get('y', 100),
-                    settings.get('width', 400), settings.get('height', 100)
-                )
+                x = settings.get('x', default_x)
+                y = settings.get('y', default_y)
+                w = settings.get('width', default_w)
+                h = settings.get('height', default_h)
+                # If saved position is off-screen, reset to default
+                if not screen.contains(QPoint(x + w // 2, y + h // 2)):
+                    x, y = default_x, default_y
+                self.setGeometry(x, y, w, h)
         except (FileNotFoundError, json.JSONDecodeError):
-            self.setGeometry(100, 100, 400, 100)
+            self.setGeometry(default_x, default_y, default_w, default_h)
 
     def save_settings(self):
         """Saves the current window geometry to the settings file."""
