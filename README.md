@@ -12,7 +12,7 @@ A lightweight, always-on-top desktop widget that shows a real-time ping latency 
 - System tray icon — double-click to show/hide, right-click to exit
 - Drag to move, `Ctrl+Drag` to resize
 - Window position and size saved between sessions
-- Auto-repositions to screen center if saved position is off-screen (e.g. after monitor change)
+- Auto-repositions to top-right corner if saved position is off-screen (e.g. after monitor change)
 
 ## Usage
 
