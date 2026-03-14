@@ -252,8 +252,8 @@ class PingWidget(QMainWindow):
         """Loads window geometry from the settings file."""
         screen = QApplication.primaryScreen().availableGeometry()
         default_w, default_h = 400, 100
-        default_x = screen.center().x() - default_w // 2
-        default_y = screen.center().y() - default_h // 2
+        default_x = screen.right() - default_w - int(screen.width() * 0.05)
+        default_y = screen.top() + int(screen.height() * 0.05)
 
         try:
             with open(self.get_settings_path(), 'r') as f:
