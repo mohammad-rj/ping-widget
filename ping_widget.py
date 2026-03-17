@@ -203,9 +203,18 @@ class PingWidget(QMainWindow):
     def get_ping_time(self, host):
         """Pings a host and returns the latency in ms, or None on failure."""
         try:
+            # Strip PyInstaller's _MEIPASS from PATH to prevent DLL conflicts (0xc0000142)
+            env = os.environ.copy()
+            if hasattr(sys, '_MEIPASS'):
+                meipass = sys._MEIPASS
+                env['PATH'] = ';'.join(
+                    p for p in env.get('PATH', '').split(';')
+                    if p and meipass not in p
+                )
             result_bytes = subprocess.check_output(
                 [PING_EXECUTABLE, '-n', '1', '-w', '1000', host],
-                stderr=subprocess.STDOUT, creationflags=subprocess.CREATE_NO_WINDOW
+                stderr=subprocess.STDOUT, creationflags=subprocess.CREATE_NO_WINDOW,
+                env=env
             )
             encoding = locale.getpreferredencoding()
             raw_output = result_bytes.decode(encoding, errors='ignore')
