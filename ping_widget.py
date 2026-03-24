@@ -1,7 +1,6 @@
 import sys
-import subprocess
-import re
-import locale
+import socket
+import time
 import numpy as np
 import json
 import os
@@ -14,11 +13,17 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 # --- Main Settings ---
-PING_TARGET = "8.8.8.8"
 UPDATE_INTERVAL_MS = 1000
 MAX_DATA_POINTS = 100
-PING_EXECUTABLE = 'C:\\Windows\\System32\\ping.exe'
 SETTINGS_FILE = "ping_widget_settings.json"
+CONFIG_FILE = "ping_widget_config.json"
+
+# --- Default Config ---
+DEFAULT_CONFIG = {
+    "ping_target": "8.8.8.8",
+    "ping_port": 53,
+    "ping_timeout": 1.0
+}
 
 class SmartHandle(QPushButton):
     """A smart handle button for moving and resizing the main window."""
@@ -131,6 +136,9 @@ class PingWidget(QMainWindow):
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
         self.setStyleSheet("background:transparent;")
 
+        # Load ping config
+        self.config = self.load_config()
+
         # Load previous geometry or set a default
         self.load_settings()
 
@@ -200,33 +208,36 @@ class PingWidget(QMainWindow):
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
             self._toggle_visibility()
 
-    def get_ping_time(self, host):
-        """Pings a host and returns the latency in ms, or None on failure."""
+    def load_config(self):
+        """Loads ping config from file, falls back to defaults."""
+        config = DEFAULT_CONFIG.copy()
         try:
-            # Strip PyInstaller's _MEIPASS from PATH to prevent DLL conflicts (0xc0000142)
-            env = os.environ.copy()
-            if hasattr(sys, '_MEIPASS'):
-                meipass = sys._MEIPASS
-                env['PATH'] = ';'.join(
-                    p for p in env.get('PATH', '').split(';')
-                    if p and meipass not in p
-                )
-            result_bytes = subprocess.check_output(
-                [PING_EXECUTABLE, '-n', '1', '-w', '1000', host],
-                stderr=subprocess.STDOUT, creationflags=subprocess.CREATE_NO_WINDOW,
-                env=env
-            )
-            encoding = locale.getpreferredencoding()
-            raw_output = result_bytes.decode(encoding, errors='ignore')
-            pattern = r"(?:time|زمان)[=<](\d+)ms"
-            match = re.search(pattern, raw_output, re.IGNORECASE)
-            return int(match.group(1)) if match else None
-        except (subprocess.CalledProcessError, FileNotFoundError, Exception):
+            base_path = os.path.dirname(os.path.abspath(sys.argv[0]))
+            config_path = os.path.join(base_path, CONFIG_FILE)
+            with open(config_path, 'r') as f:
+                loaded = json.load(f)
+                config.update({k: v for k, v in loaded.items() if k in DEFAULT_CONFIG})
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+        return config
+
+    def get_ping_time(self, host, port, timeout):
+        """Measures TCP latency to host:port. No subprocess — no DLL conflicts."""
+        try:
+            start = time.perf_counter()
+            sock = socket.create_connection((host, port), timeout=timeout)
+            sock.close()
+            return int((time.perf_counter() - start) * 1000)
+        except Exception:
             return None
 
     def update_plot(self):
         """Fetches new ping data and updates the chart."""
-        ping_time = self.get_ping_time(PING_TARGET)
+        ping_time = self.get_ping_time(
+            self.config["ping_target"],
+            self.config["ping_port"],
+            self.config["ping_timeout"]
+        )
 
         # Roll the data array to the left
         self.y_data = np.roll(self.y_data, -1)

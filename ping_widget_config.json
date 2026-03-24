@@ -1,0 +1,5 @@
+{
+    "ping_target": "8.8.8.8",
+    "ping_port": 53,
+    "ping_timeout": 1.0
+}

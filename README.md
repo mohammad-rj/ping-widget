@@ -6,15 +6,43 @@ A lightweight, always-on-top desktop widget that shows a real-time ping latency 
 
 ## Features
 
-- Real-time ping graph (pings `8.8.8.8` every second)
+- Real-time ping latency graph updated every second
+- Configurable target IP via `ping_widget_config.json` (default: `8.8.8.8`)
 - Transparent, frameless window — always on top, never blocks your workflow
 - Stays visible even when clicking on the desktop
 - System tray icon — double-click to show/hide, right-click to exit
 - Drag to move, `Ctrl+Drag` to resize
 - Window position and size saved between sessions
 - Auto-repositions to top-right corner if saved position is off-screen (e.g. after monitor change)
+- No subprocess or `ping.exe` — uses TCP socket for latency measurement (no DLL conflicts)
 
 ## Usage
+
+### Download
+
+Grab the latest `PingWidget-*.zip` from the [Releases](../../releases) page — no installation needed.
+
+Extract the zip and run `PingWidget.exe`.
+
+### Configuration
+
+Edit `ping_widget_config.json` in the same folder as the exe:
+
+```json
+{
+    "ping_target": "8.8.8.8",
+    "ping_port": 53,
+    "ping_timeout": 1.0
+}
+```
+
+| Field | Description | Default |
+|---|---|---|
+| `ping_target` | IP or hostname to measure latency to | `8.8.8.8` |
+| `ping_port` | TCP port used for connection | `53` |
+| `ping_timeout` | Timeout in seconds per measurement | `1.0` |
+
+If the config file is missing, defaults are used automatically.
 
 ### Run from source
 
@@ -22,10 +50,6 @@ A lightweight, always-on-top desktop widget that shows a real-time ping latency 
 pip install PySide6 matplotlib numpy
 python ping_widget.py
 ```
-
-### Download
-
-Grab the latest `PingWidget.exe` from the [Releases](../../releases) page — no installation needed.
 
 ## Controls
 
