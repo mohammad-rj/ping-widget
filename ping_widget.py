@@ -12,6 +12,8 @@ from PySide6.QtGui import QCloseEvent, QAction, QCursor, QIcon, QPixmap, QPainte
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
+VERSION = "3.3"
+
 # --- Main Settings ---
 UPDATE_INTERVAL_MS = 1000
 MAX_DATA_POINTS = 100
